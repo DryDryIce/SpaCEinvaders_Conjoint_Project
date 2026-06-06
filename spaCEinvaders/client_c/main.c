@@ -21,10 +21,12 @@ void process_server_message(GameStateClient *game_state, char *message) {
     if (strncmp(message, "STATE|", 6) == 0) {
         sscanf(
             message,
-            "STATE|%d|%d|%d",
+            "STATE|%d|%d|%d|%d|%d",
             &game_state->player.x,
             &game_state->player.lives,
-            &game_state->player.score
+            &game_state->player.score,
+            &game_state->player.game_over,
+            &game_state->player.wave_number
         );
     } else if (strncmp(message, "ENEMY|", 6) == 0) {
         if (game_state->enemy_count >= MAX_ENEMIES) {
@@ -57,6 +59,26 @@ void process_server_message(GameStateClient *game_state, char *message) {
         );
 
         game_state->bullet.active = 1;
+    } else if (strncmp(message, "BUNKER|", 7) == 0) {
+        if (game_state->bunker_count >= MAX_BUNKERS) {
+            return;
+        }
+
+        Bunker bunker;
+
+        sscanf(
+            message,
+            "BUNKER|%d|%d|%d|%d",
+            &bunker.id,
+            &bunker.x,
+            &bunker.y,
+            &bunker.health
+        );
+
+        bunker.active = 1;
+
+        game_state->bunkers[game_state->bunker_count] = bunker;
+        game_state->bunker_count++;
     }
 }
 
@@ -65,6 +87,8 @@ int receive_game_state(SOCKET socket_fd, GameStateClient *game_state) {
 
     game_state->enemy_count = 0;
     game_state->bullet.active = 0;
+
+    game_state->bunker_count = 0;
 
     while (1) {
         if (!receive_message(socket_fd, buffer)) {
@@ -118,12 +142,15 @@ int main(int argc, char *argv[]) {
     game_state.player.x = 300;
     game_state.player.lives = 3;
     game_state.player.score = 0;
+    game_state.player.game_over = 0;
     game_state.enemy_count = 0;
+    game_state.bunker_count = 0;
     game_state.bullet.x = 0;
     game_state.bullet.y = 0;
     game_state.bullet.width = 0;
     game_state.bullet.height = 0;
     game_state.bullet.active = 0;
+    game_state.player.wave_number = 1;
 
     socket_fd = connect_to_server();
 
@@ -160,16 +187,18 @@ int main(int argc, char *argv[]) {
             }
 
             if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_a) {
-                    send_message(socket_fd, "MOVE_LEFT");
-                }
+                if (!game_state.player.game_over) {
+                    if (event.key.keysym.sym == SDLK_a) {
+                        send_message(socket_fd, "MOVE_LEFT");
+                    }
 
-                if (event.key.keysym.sym == SDLK_d) {
-                    send_message(socket_fd, "MOVE_RIGHT");
-                }
+                    if (event.key.keysym.sym == SDLK_d) {
+                        send_message(socket_fd, "MOVE_RIGHT");
+                    }
 
-                if (event.key.keysym.sym == SDLK_SPACE) {
-                    send_message(socket_fd, "SHOOT");
+                    if (event.key.keysym.sym == SDLK_SPACE) {
+                        send_message(socket_fd, "SHOOT");
+                    }
                 }
 
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
@@ -183,6 +212,21 @@ int main(int argc, char *argv[]) {
         SDL_LockMutex(state_mutex);
         local_state = game_state;
         SDL_UnlockMutex(state_mutex);
+
+        if (local_state.player.game_over) {
+            SDL_SetWindowTitle(window, "spaCEinvaders - GAME OVER");
+        } else {
+            char title[128];
+            snprintf(
+                title,
+                sizeof(title),
+                "spaCEinvaders - Vidas: %d | Score: %d | Horda: %d",
+                local_state.player.lives,
+                local_state.player.score,
+                local_state.player.wave_number
+            );
+            SDL_SetWindowTitle(window, title);
+        }
 
         render_game(renderer, local_state);
         

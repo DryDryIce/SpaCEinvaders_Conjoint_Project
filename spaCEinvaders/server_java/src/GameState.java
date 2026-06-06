@@ -11,6 +11,11 @@ public class GameState {
 
     private Bullet playerBullet;
 
+    private boolean gameOver;
+    private int waveNumber;
+
+    private final List<Bunker> bunkers;
+
     public GameState() {
         this.playerX = 300;
         this.playerLives = 3;
@@ -20,15 +25,25 @@ public class GameState {
         this.enemyDirection = 1;
 
         this.playerBullet = null;
+        this.gameOver = false;
+        this.waveNumber = 1;
 
-        createInitialEnemies();
+        this.bunkers = new ArrayList<>();
+
+        createWave();
+        createBunkers();
     }
 
-    private void createInitialEnemies() {
+    private void createWave() {
+        enemies.clear();
+
         int id = 0;
 
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 8; col++) {
+        int rows = 3;
+        int cols = 8;
+
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < cols; col++) {
                 int x = 80 + col * 70;
                 int y = 60 + row * 50;
 
@@ -46,23 +61,40 @@ public class GameState {
                 id++;
             }
         }
+
+        enemyDirection = 1;
+        playerBullet = null;
+
+        System.out.println("Nueva horda creada. Horda #" + waveNumber);
     }
 
     public synchronized void moveLeft() {
+        if (gameOver) {
+            return;
+        }
+
         if (playerX > 0) {
-            playerX -= 10;
+            playerX -= 12;
         }
     }
 
     public synchronized void moveRight() {
+        if (gameOver) {
+            return;
+        }
+
         if (playerX < 740) {
-            playerX += 10;
+            playerX += 12;
         }
     }
 
     public synchronized void shoot() {
+        if (gameOver) {
+            return;
+        }
+
         if (playerBullet == null || !playerBullet.isActive()) {
-            int bulletX = playerX + 30;
+            int bulletX = playerX + 28;
             int bulletY = 525;
 
             playerBullet = new Bullet(bulletX, bulletY);
@@ -70,9 +102,15 @@ public class GameState {
     }
 
     public synchronized void updateGame() {
+        if (gameOver) {
+            return;
+        }
+
         updateEnemies();
         updateBullet();
         checkBulletEnemyCollisions();
+        checkEnemiesReachedPlayer();
+        checkWaveCompleted();
     }
 
     private synchronized void updateBullet() {
@@ -109,6 +147,34 @@ public class GameState {
         }
     }
 
+    private synchronized void checkEnemiesReachedPlayer() {
+        final int playerDangerY = 540;
+
+        for (Enemy enemy : enemies) {
+            if (!enemy.isAlive()) {
+                continue;
+            }
+
+            int enemyBottom = enemy.getY() + enemy.getHeight();
+
+            if (enemyBottom >= playerDangerY) {
+                playerLives--;
+
+                System.out.println("El jugador perdió una vida. Vidas restantes: " + playerLives);
+
+                if (playerLives <= 0) {
+                    playerLives = 0;
+                    gameOver = true;
+                    System.out.println("GAME OVER");
+                } else {
+                    createWave();
+                }
+
+                break;
+            }
+        }
+    }
+
     private boolean isColliding(
             int x1, int y1, int w1, int h1,
             int x2, int y2, int w2, int h2
@@ -140,16 +206,55 @@ public class GameState {
 
             for (Enemy enemy : enemies) {
                 if (enemy.isAlive()) {
-                    enemy.move(0, 20);
+                    enemy.move(0, 10);
                 }
             }
         } else {
             for (Enemy enemy : enemies) {
                 if (enemy.isAlive()) {
-                    enemy.move(enemyDirection * 3, 0);
+                    enemy.move(enemyDirection * 10, 0);
                 }
             }
         }
+    }
+
+    private synchronized boolean areAllEnemiesDead() {
+        for (Enemy enemy : enemies) {
+            if (enemy.isAlive()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private synchronized void startNextWave() {
+        waveNumber++;
+
+        System.out.println("Horda completada. Iniciando horda #" + waveNumber);
+
+        createWave();
+    }
+
+    private synchronized void checkWaveCompleted() {
+        if (areAllEnemiesDead()) {
+            startNextWave();
+        }
+    }
+
+    private void createBunkers() {
+        bunkers.clear();
+
+        bunkers.add(new Bunker(0, 100, 440));
+        bunkers.add(new Bunker(1, 260, 440));
+        bunkers.add(new Bunker(2, 420, 440));
+        bunkers.add(new Bunker(3, 580, 440));
+
+        System.out.println("Bunkers creados.");
+    }
+
+    public synchronized int getWaveNumber() {
+        return waveNumber;
     }
 
     public synchronized int getPlayerX() {
@@ -164,11 +269,19 @@ public class GameState {
         return score;
     }
 
+    public synchronized boolean isGameOver() {
+        return gameOver;
+    }
+
     public synchronized List<Enemy> getEnemiesCopy() {
         return new ArrayList<>(enemies);
     }
 
     public synchronized Bullet getPlayerBullet() {
         return playerBullet;
+    }
+
+    public synchronized List<Bunker> getBunkersCopy() {
+        return new ArrayList<>(bunkers);
     }
 }

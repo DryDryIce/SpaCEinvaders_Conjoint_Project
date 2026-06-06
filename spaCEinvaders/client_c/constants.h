@@ -16,4 +16,7 @@
 #define ENEMY_WIDTH 40
 #define ENEMY_HEIGHT 25
 
+#define BUNKER_WIDTH 80
+#define BUNKER_HEIGHT 35
+
 #endif

@@ -69,7 +69,9 @@ public class ClientHandler implements Runnable {
             "STATE|" +
             gameState.getPlayerX() + "|" +
             gameState.getPlayerLives() + "|" +
-            gameState.getScore()
+            gameState.getScore() + "|" +
+            (gameState.isGameOver() ? 1 : 0) + "|" +
+            gameState.getWaveNumber()
         );
 
         for (Enemy enemy : gameState.getEnemiesCopy()) {
@@ -80,6 +82,18 @@ public class ClientHandler implements Runnable {
                     enemy.getX() + "|" +
                     enemy.getY() + "|" +
                     enemy.getPoints()
+                );
+            }
+        }
+
+        for (Bunker bunker : gameState.getBunkersCopy()) {
+            if (bunker.isActive()) {
+                sendMessage(
+                    "BUNKER|" +
+                    bunker.getId() + "|" +
+                    bunker.getX() + "|" +
+                    bunker.getY() + "|" +
+                    bunker.getHealth()
                 );
             }
         }

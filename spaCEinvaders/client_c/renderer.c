@@ -60,6 +60,28 @@ void render_game(SDL_Renderer *renderer, GameStateClient game_state) {
         SDL_RenderFillRect(renderer, &enemy_rect);
     }
 
+    for (int i = 0; i < game_state.bunker_count; i++) {
+        if (!game_state.bunkers[i].active) {
+            continue;
+        }
+
+        SDL_Rect bunker_rect;
+        bunker_rect.x = game_state.bunkers[i].x;
+        bunker_rect.y = game_state.bunkers[i].y;
+        bunker_rect.w = BUNKER_WIDTH;
+        bunker_rect.h = BUNKER_HEIGHT;
+
+        if (game_state.bunkers[i].health > 60) {
+            SDL_SetRenderDrawColor(renderer, 0, 180, 0, 255);
+        } else if (game_state.bunkers[i].health > 30) {
+            SDL_SetRenderDrawColor(renderer, 180, 180, 0, 255);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 180, 0, 0, 255);
+        }
+
+        SDL_RenderFillRect(renderer, &bunker_rect);
+    }
+
     if (game_state.bullet.active) {
         SDL_Rect bullet_rect;
         bullet_rect.x = game_state.bullet.x;
