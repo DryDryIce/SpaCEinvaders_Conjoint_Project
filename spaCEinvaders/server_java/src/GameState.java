@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class GameState {
     private int playerX;
@@ -8,8 +9,14 @@ public class GameState {
 
     private final List<Enemy> enemies;
     private int enemyDirection;
+    private int enemySpeed;
+
+    private UFO ufo;
+    private final Random random;
+    private int ufoSpawnCounter;
 
     private Bullet playerBullet;
+    private final List<EnemyBullet> enemyBullets;
 
     private boolean gameOver;
     private int waveNumber;
@@ -23,12 +30,18 @@ public class GameState {
 
         this.enemies = new ArrayList<>();
         this.enemyDirection = 1;
+        this.enemySpeed = 10;
 
         this.playerBullet = null;
+        this.enemyBullets = new ArrayList<>();
         this.gameOver = false;
         this.waveNumber = 1;
 
         this.bunkers = new ArrayList<>();
+
+        this.random = new Random();      
+        this.ufo = null;                 
+        this.ufoSpawnCounter = 0;
 
         createWave();
         createBunkers();
@@ -101,14 +114,59 @@ public class GameState {
         }
     }
 
+    private synchronized void enemyShoot() {
+        List<Enemy> aliveEnemies = new ArrayList<>();
+
+        for (Enemy enemy : enemies) {
+            if (enemy.isAlive()) {
+                aliveEnemies.add(enemy);
+            }
+        }
+
+        if (aliveEnemies.isEmpty()) {
+            return;
+        }
+
+        Enemy shooter =
+            aliveEnemies.get(
+                (int)(Math.random() * aliveEnemies.size())
+            );
+
+        enemyBullets.add(
+            new EnemyBullet(
+                shooter.getX() + 20,
+                shooter.getY() + 25
+            )
+        );
+
+        System.out.println(
+            "Disparo enemigo creado en "
+            + shooter.getX()
+            + ","
+            + shooter.getY()
+        );
+    }
+
     public synchronized void updateGame() {
         if (gameOver) {
             return;
         }
 
+        if (Math.random() < 0.02) {
+            enemyShoot();
+        }
+
         updateEnemies();
         updateBullet();
+
+        updateUFO();
+        checkBulletUFOCollision();
+
+        checkEnemyBulletBunkerCollisions();
+        checkPlayerBulletBunkerCollisions();
+
         checkBulletEnemyCollisions();
+        updateEnemyBullets();
         checkEnemiesReachedPlayer();
         checkWaveCompleted();
     }
@@ -116,6 +174,57 @@ public class GameState {
     private synchronized void updateBullet() {
         if (playerBullet != null && playerBullet.isActive()) {
             playerBullet.update();
+        }
+    }
+
+    private synchronized void updateEnemyBullets() {
+        enemyBullets.removeIf(
+            bullet -> !bullet.isActive()
+        );
+
+        for (EnemyBullet bullet : enemyBullets) {
+            bullet.update();
+        }
+    }
+
+    private synchronized void updateUFO() {
+
+        ufoSpawnCounter++;
+
+        if (ufo == null || !ufo.isAlive()) {
+
+            if (ufoSpawnCounter >= 300) {
+
+                ufoSpawnCounter = 0;
+
+                int direction = random.nextBoolean() ? 1 : -1;
+
+                int startX = (direction == 1) ? -50 : 820;
+
+                int bonusPoints = random.nextInt(1000) + 500;
+
+                ufo = new UFO(
+                    999,
+                    startX,
+                    30,
+                    bonusPoints,
+                    direction
+                );
+
+                System.out.println(
+                    "OVNI creado con "
+                    + bonusPoints
+                    + " puntos"
+                );
+            }
+
+            return;
+        }
+
+        ufo.update();
+
+        if (ufo.getX() < -100 || ufo.getX() > 900) {
+            ufo = null;
         }
     }
 
@@ -145,6 +254,42 @@ public class GameState {
                 break;
             }
         }
+    }
+    
+    private synchronized void checkBulletUFOCollision() {
+
+        if (ufo == null ||
+            !ufo.isAlive() ||
+            playerBullet == null ||
+            !playerBullet.isActive()) {
+            return;
+        }
+
+        if (isColliding(
+                playerBullet.getX(),
+                playerBullet.getY(),
+                playerBullet.getWidth(),
+                playerBullet.getHeight(),
+                ufo.getX(),
+                ufo.getY(),
+                ufo.getWidth(),
+                ufo.getHeight()
+        )) {
+
+            score += ufo.getPoints();
+
+            System.out.println(
+                "OVNI destruido. Bonus: "
+                + ufo.getPoints()
+            );
+
+            playerBullet.deactivate();
+            ufo.destroy();
+        }
+    }
+
+    public synchronized UFO getUfo() {
+        return ufo;
     }
 
     private synchronized void checkEnemiesReachedPlayer() {
@@ -193,7 +338,7 @@ public class GameState {
                 continue;
             }
 
-            int nextX = enemy.getX() + enemyDirection * 10;
+            int nextX = enemy.getX() + enemyDirection * enemySpeed;
 
             if (nextX <= 20 || nextX >= 740) {
                 shouldGoDown = true;
@@ -212,7 +357,7 @@ public class GameState {
         } else {
             for (Enemy enemy : enemies) {
                 if (enemy.isAlive()) {
-                    enemy.move(enemyDirection * 10, 0);
+                    enemy.move(enemyDirection * enemySpeed, 0);
                 }
             }
         }
@@ -230,8 +375,13 @@ public class GameState {
 
     private synchronized void startNextWave() {
         waveNumber++;
+        playerLives++;
+        enemySpeed += 2;
+        
+        repairBunkers();
 
-        System.out.println("Horda completada. Iniciando horda #" + waveNumber);
+        System.out.println("Horda completada. Vida extra obtenida. Vidas " 
+            + playerLives + " Iniciando horda #" + waveNumber);
 
         createWave();
     }
@@ -284,4 +434,91 @@ public class GameState {
     public synchronized List<Bunker> getBunkersCopy() {
         return new ArrayList<>(bunkers);
     }
+
+    public synchronized List<EnemyBullet> getEnemyBulletsCopy() {
+        return new ArrayList<>(enemyBullets);
+    }
+
+    private synchronized void checkEnemyBulletBunkerCollisions() {
+       for (EnemyBullet bullet : enemyBullets) {
+
+            if (!bullet.isActive()) {
+                continue;
+            }
+
+            for (Bunker bunker : bunkers) {
+
+                if (!bunker.isActive()) {
+                    continue;
+                }
+
+                if (isColliding(
+                        bullet.getX(),
+                        bullet.getY(),
+                        bullet.getWidth(),
+                        bullet.getHeight(),
+                        bunker.getX(),
+                        bunker.getY(),
+                        bunker.getWidth(),
+                        bunker.getHeight()
+                )) {
+
+                    bunker.takeDamage(20);
+
+                    bullet.deactivate();
+
+                    System.out.println(
+                        "Bunker "
+                        + bunker.getId()
+                        + " recibió daño. Vida: "
+                        + bunker.getHealth()
+                    );
+
+                    break;
+                }
+            }
+        } 
+    }
+
+    private synchronized void checkPlayerBulletBunkerCollisions() {
+        if (playerBullet == null ||
+            !playerBullet.isActive()) {
+            return;
+        }
+
+        for (Bunker bunker : bunkers) {
+
+            if (!bunker.isActive()) {
+                continue;
+            }
+
+            if (isColliding(
+                    playerBullet.getX(),
+                    playerBullet.getY(),
+                    playerBullet.getWidth(),
+                    playerBullet.getHeight(),
+                    bunker.getX(),
+                    bunker.getY(),
+                    bunker.getWidth(),
+                    bunker.getHeight()
+            )) {
+
+                bunker.takeDamage(10);
+
+                playerBullet.deactivate();
+
+                break;
+            }
+        } 
+    } 
+
+    private synchronized void repairBunkers() {
+        for (Bunker bunker : bunkers) {
+            bunker.repair();
+        }
+        System.out.println(
+            "Bunkers reparados para la siguiente horda."
+        );
+    }
+
 }

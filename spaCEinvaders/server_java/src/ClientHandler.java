@@ -86,6 +86,33 @@ public class ClientHandler implements Runnable {
             }
         }
 
+        UFO ufo = gameState.getUfo();
+
+        if (ufo != null && ufo.isAlive()) {
+
+            sendMessage(
+                "UFO|" +
+                ufo.getX() + "|" +
+                ufo.getY() + "|" +
+                ufo.getPoints()
+            );
+
+        }
+
+        for (EnemyBullet bullet : gameState.getEnemyBulletsCopy()) {
+
+            if (bullet.isActive()) {
+
+                sendMessage(
+                    "EBULLET|" +
+                    bullet.getX() + "|" +
+                    bullet.getY() + "|" +
+                    bullet.getWidth() + "|" +
+                    bullet.getHeight()
+                );
+            }
+        }
+
         for (Bunker bunker : gameState.getBunkersCopy()) {
             if (bunker.isActive()) {
                 sendMessage(

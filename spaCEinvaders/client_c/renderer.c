@@ -93,6 +93,65 @@ void render_game(SDL_Renderer *renderer, GameStateClient game_state) {
         SDL_RenderFillRect(renderer, &bullet_rect);
     }
 
+    for (int i = 0; i < game_state.enemy_bullet_count; i++) {
+
+        if (!game_state.enemy_bullets[i].active) {
+            continue;
+        }
+
+        SDL_Rect bullet_rect;
+
+        bullet_rect.x =
+            game_state.enemy_bullets[i].x;
+
+        bullet_rect.y =
+            game_state.enemy_bullets[i].y;
+
+        bullet_rect.w =
+            game_state.enemy_bullets[i].width;
+
+        bullet_rect.h =
+            game_state.enemy_bullets[i].height;
+
+        SDL_SetRenderDrawColor(
+            renderer,
+            255,
+            255,
+            0,
+            255
+        );
+
+        SDL_RenderFillRect(
+            renderer,
+            &bullet_rect
+        );
+    }
+
+    if (game_state.ufo.active) {
+        
+        
+
+        SDL_Rect ufo_rect;
+
+        ufo_rect.x = game_state.ufo.x;
+        ufo_rect.y = game_state.ufo.y;
+        ufo_rect.w = 60;
+        ufo_rect.h = 25;
+
+        SDL_SetRenderDrawColor(
+            renderer,
+            255,
+            0,
+            255,
+            255
+        );
+
+        SDL_RenderFillRect(
+            renderer,
+            &ufo_rect
+        );
+    }
+
     SDL_RenderPresent(renderer);
 }
 

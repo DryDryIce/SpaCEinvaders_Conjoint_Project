@@ -1,6 +1,6 @@
 public class Bullet {
-    private int x;
-    private int y;
+    protected int x;
+    protected int y;
     private final int width;
     private final int height;
     private final int speed;
@@ -20,11 +20,19 @@ public class Bullet {
             return;
         }
 
-        y -= speed;
+        moveUp();
 
         if (y < 0) {
             active = false;
         }
+    }
+
+    protected synchronized void moveUp() {
+        y -= speed;
+    }
+
+    protected synchronized void moveDown() {
+        y += speed;
     }
 
     public synchronized int getX() {

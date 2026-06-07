@@ -18,6 +18,7 @@ typedef struct {
 } ReceiverContext;
 
 void process_server_message(GameStateClient *game_state, char *message) {
+
     if (strncmp(message, "STATE|", 6) == 0) {
         sscanf(
             message,
@@ -80,6 +81,46 @@ void process_server_message(GameStateClient *game_state, char *message) {
         game_state->bunkers[game_state->bunker_count] = bunker;
         game_state->bunker_count++;
     }
+
+    else if (strncmp(message, "UFO|", 4) == 0) {
+        
+        sscanf(
+            message,
+            "UFO|%d|%d|%d",
+            &game_state->ufo.x,
+            &game_state->ufo.y,
+            &game_state->ufo.points
+        );
+        
+        game_state->ufo.active = 1;
+    }
+
+    else if (strncmp(message, "EBULLET|", 8) == 0) {
+
+        if (game_state->enemy_bullet_count >= MAX_ENEMY_BULLETS) {
+            return;
+        }
+
+        EnemyBullet bullet;
+
+        sscanf(
+            message,
+            "EBULLET|%d|%d|%d|%d",
+            &bullet.x,
+            &bullet.y,
+            &bullet.width,
+            &bullet.height
+        );
+
+        bullet.active = 1;
+
+        game_state->enemy_bullets[
+            game_state->enemy_bullet_count
+        ] = bullet;
+
+        game_state->enemy_bullet_count++;
+    }
+
 }
 
 int receive_game_state(SOCKET socket_fd, GameStateClient *game_state) {
@@ -87,6 +128,10 @@ int receive_game_state(SOCKET socket_fd, GameStateClient *game_state) {
 
     game_state->enemy_count = 0;
     game_state->bullet.active = 0;
+
+    game_state->enemy_bullet_count = 0;
+
+    game_state->ufo.active = 0;
 
     game_state->bunker_count = 0;
 
@@ -110,7 +155,7 @@ int receiver_thread(void *data) {
     ReceiverContext *context = (ReceiverContext *)data;
 
     while (*(context->running)) {
-        GameStateClient temp_state;
+        GameStateClient temp_state = {0};
 
         if (!receive_game_state(context->socket_fd, &temp_state)) {
             *(context->running) = 0;

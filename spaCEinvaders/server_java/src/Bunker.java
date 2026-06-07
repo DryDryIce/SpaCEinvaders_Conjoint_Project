@@ -57,4 +57,19 @@ public class Bunker {
     public synchronized boolean isActive() {
         return active;
     }
+
+    public synchronized void repair() {
+
+        if (!active) {
+            active = true;
+            health = 100;
+            return;
+        }
+
+        health += 50;
+
+        if (health > 100) {
+            health = 100;
+        }
+    }
 }
