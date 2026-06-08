@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <winsock2.h>
+#include <windows.h>
 
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
@@ -10,6 +11,7 @@
 #include "entities.h"
 #include "renderer.h"
 
+// ── Contexto para el hilo receptor del servidor ──────────────────────────────
 typedef struct {
     SOCKET socket_fd;
     GameStateClient *game_state;
@@ -17,8 +19,15 @@ typedef struct {
     int *running;
 } ReceiverContext;
 
-void process_server_message(GameStateClient *game_state, char *message) {
+// ── Contexto para el hilo del control (Pico via COM3) ────────────────────────
+typedef struct {
+    SOCKET socket_fd;
+    int *running;
+    GameStateClient *game_state;
+} ControlContext;
 
+// ── Procesamiento de mensajes del servidor ───────────────────────────────────
+void process_server_message(GameStateClient *game_state, char *message) {
     if (strncmp(message, "STATE|", 6) == 0) {
         sscanf(
             message,
@@ -80,10 +89,7 @@ void process_server_message(GameStateClient *game_state, char *message) {
 
         game_state->bunkers[game_state->bunker_count] = bunker;
         game_state->bunker_count++;
-    }
-
-    else if (strncmp(message, "UFO|", 4) == 0) {
-        
+    } else if (strncmp(message, "UFO|", 4) == 0) {
         sscanf(
             message,
             "UFO|%d|%d|%d",
@@ -91,12 +97,9 @@ void process_server_message(GameStateClient *game_state, char *message) {
             &game_state->ufo.y,
             &game_state->ufo.points
         );
-        
+
         game_state->ufo.active = 1;
-    }
-
-    else if (strncmp(message, "EBULLET|", 8) == 0) {
-
+    } else if (strncmp(message, "EBULLET|", 8) == 0) {
         if (game_state->enemy_bullet_count >= MAX_ENEMY_BULLETS) {
             return;
         }
@@ -114,25 +117,19 @@ void process_server_message(GameStateClient *game_state, char *message) {
 
         bullet.active = 1;
 
-        game_state->enemy_bullets[
-            game_state->enemy_bullet_count
-        ] = bullet;
-
+        game_state->enemy_bullets[game_state->enemy_bullet_count] = bullet;
         game_state->enemy_bullet_count++;
     }
-
 }
 
+// ── Hilo receptor del servidor ───────────────────────────────────────────────
 int receive_game_state(SOCKET socket_fd, GameStateClient *game_state) {
     char buffer[BUFFER_SIZE];
 
     game_state->enemy_count = 0;
     game_state->bullet.active = 0;
-
     game_state->enemy_bullet_count = 0;
-
     game_state->ufo.active = 0;
-
     game_state->bunker_count = 0;
 
     while (1) {
@@ -170,7 +167,91 @@ int receiver_thread(void *data) {
     return 0;
 }
 
+// ── Hilo del control fisico (Raspberry Pi Pico via COM3) ─────────────────────
+int control_thread(void *data) {
+    ControlContext *context = (ControlContext *)data;
 
+    HANDLE hSerial = CreateFileA(
+        "\\\\.\\COM3",
+        GENERIC_READ,
+        0,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hSerial == INVALID_HANDLE_VALUE) {
+        printf("Error: No se pudo abrir COM3. Verificar conexion del control.\n");
+        return 1;
+    }
+
+    DCB dcbSerialParams = {0};
+    dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+
+    if (!GetCommState(hSerial, &dcbSerialParams)) {
+        printf("Error obteniendo estado de COM3.\n");
+        CloseHandle(hSerial);
+        return 1;
+    }
+
+    dcbSerialParams.BaudRate = CBR_115200;
+    dcbSerialParams.ByteSize = 8;
+    dcbSerialParams.StopBits = ONESTOPBIT;
+    dcbSerialParams.Parity   = NOPARITY;
+
+    if (!SetCommState(hSerial, &dcbSerialParams)) {
+        printf("Error configurando COM3.\n");
+        CloseHandle(hSerial);
+        return 1;
+    }
+
+    COMMTIMEOUTS timeouts = {0};
+    timeouts.ReadIntervalTimeout         = 50;
+    timeouts.ReadTotalTimeoutConstant    = 50;
+    timeouts.ReadTotalTimeoutMultiplier  = 10;
+    SetCommTimeouts(hSerial, &timeouts);
+
+    printf("Control fisico conectado en COM3.\n");
+
+    char buffer[BUFFER_SIZE];
+    int index = 0;
+    char c;
+    DWORD bytesRead;
+
+    while (*(context->running)) {
+        if (ReadFile(hSerial, &c, 1, &bytesRead, NULL) && bytesRead > 0) {
+            if (c == '\n' || c == '\r') {
+                if (index > 0) {
+                    buffer[index] = '\0';
+                    index = 0;
+
+                    if (!context->game_state->player.game_over) {
+                        if (strcmp(buffer, "MOVE_LEFT") == 0) {
+                            send_message(context->socket_fd, "MOVE_LEFT");
+                            printf("Control: MOVE_LEFT\n");
+                        } else if (strcmp(buffer, "MOVE_RIGHT") == 0) {
+                            send_message(context->socket_fd, "MOVE_RIGHT");
+                            printf("Control: MOVE_RIGHT\n");
+                        } else if (strcmp(buffer, "SHOOT") == 0) {
+                            send_message(context->socket_fd, "SHOOT");
+                            printf("Control: SHOOT\n");
+                        }
+                    }
+                }
+            } else {
+                if (index < BUFFER_SIZE - 1) {
+                    buffer[index++] = c;
+                }
+            }
+        }
+    }
+
+    CloseHandle(hSerial);
+    return 0;
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
@@ -213,16 +294,26 @@ int main(int argc, char *argv[]) {
 
     SDL_mutex *state_mutex = SDL_CreateMutex();
 
-    ReceiverContext context;
-    context.socket_fd = socket_fd;
-    context.game_state = &game_state;
-    context.mutex = state_mutex;
-    context.running = &running;
+    ReceiverContext receiver_ctx;
+    receiver_ctx.socket_fd  = socket_fd;
+    receiver_ctx.game_state = &game_state;
+    receiver_ctx.mutex      = state_mutex;
+    receiver_ctx.running    = &running;
 
-    SDL_Thread *receiver = SDL_CreateThread(receiver_thread, "ReceiverThread", &context);
+    SDL_Thread *receiver = SDL_CreateThread(receiver_thread, "ReceiverThread", &receiver_ctx);
     if (receiver == NULL) {
         printf("Error creando hilo receptor: %s\n", SDL_GetError());
         running = 0;
+    }
+
+    ControlContext control_ctx;
+    control_ctx.socket_fd  = socket_fd;
+    control_ctx.running    = &running;
+    control_ctx.game_state = &game_state;
+
+    SDL_Thread *control = SDL_CreateThread(control_thread, "ControlThread", &control_ctx);
+    if (control == NULL) {
+        printf("Advertencia: No se pudo crear hilo del control fisico.\n");
     }
 
     while (running) {
@@ -274,7 +365,7 @@ int main(int argc, char *argv[]) {
         }
 
         render_game(renderer, local_state);
-        
+
         SDL_Delay(16);
     }
 
@@ -282,6 +373,10 @@ int main(int argc, char *argv[]) {
 
     if (receiver != NULL) {
         SDL_WaitThread(receiver, NULL);
+    }
+
+    if (control != NULL) {
+        SDL_WaitThread(control, NULL);
     }
 
     SDL_DestroyMutex(state_mutex);
