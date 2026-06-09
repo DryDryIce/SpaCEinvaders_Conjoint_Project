@@ -1,4 +1,4 @@
-Se creo que VSCode y se utilizo C, Java, gcc, MSYS UCRT64, SDL2, entonces descargen esto para que funcione por favor
+Se creo que VSCode y se utilizo C, Java, gcc, MSYS UCRT64, SDL2, SDL2_image entonces descargen esto para que funcione por favor
 
 =====================================================================================================================================================
 Inicio de servidor de Java
@@ -34,7 +34,9 @@ Servidor Java
 ├── GameState.java     → lógica completa del juego: jugador, enemigos, balas, score, vidas, hordas y bunkers
 ├── Enemy.java         → modelo de cada enemigo: posición, puntos, tamaño, movimiento y estado vivo/muerto
 ├── Bullet.java        → modelo de la bala del jugador: posición, tamaño, velocidad y estado activo
-└── Bunker.java        → modelo de los bunkers: posición, tamaño, vida, daño recibido y estado activo/inactivo
+├── Bunker.java        → modelo de los bunkers: posición, tamaño, vida, daño recibido y estado activo/inactivo
+├── UFO.java           → modelo del enemigo UFO: posición, puntos, tamaño, movimiento y estado vivo/muerto
+└── EnemyBullet.java   → modelo de la bala de los enemigos: posición, tamaño, velocidad y estado activo
 
 Cliente C
 ├── main.c             → ciclo principal del cliente, eventos de teclado, hilo receptor y procesamiento de mensajes del servidor
@@ -44,4 +46,5 @@ Cliente C
 ├── renderer.h         → declaraciones de funciones gráficas
 ├── entities.h         → structs del cliente: Player, Enemy, Bullet, Bunker y GameStateClient
 ├── constants.h        → constantes del cliente: ventana, jugador, enemigos, bala, bunkers, IP y puerto
-└── Makefile           → compilación del cliente C con SDL2 y Winsock
+├── Makefile           → compilación del cliente C con SDL2 y Winsock
+└── spectator.c        → ciclo principal del cliente, spectacion del juego y procesamiento de mensajes del servidor
