@@ -6,8 +6,15 @@ public class Enemy {
     private boolean alive;
     private final int width;
     private final int height;
+    private final int type;
 
-    public Enemy(int id, int x, int y, int points) {
+    public Enemy(
+        int id, 
+        int x, 
+        int y, 
+        int points,
+        int type
+        ) {
         this.id = id;
         this.x = x;
         this.y = y;
@@ -15,6 +22,7 @@ public class Enemy {
         this.alive = true;
         this.width = 40;
         this.height = 25;
+        this.type = type;
     }
 
     public int getId() {
@@ -52,5 +60,9 @@ public class Enemy {
 
     public int getHeight() {
         return height;
+    }
+
+    public int getType() {
+        return type;
     }
 }

@@ -70,7 +70,27 @@ public class GameState {
                     points = 10;
                 }
 
-                enemies.add(new Enemy(id, x, y, points));
+                int type;
+
+                if (row == 0) {
+                    type = 2;
+                }
+                else if (row == 1) {
+                    type = 1;
+                }
+                else {
+                    type = 0;
+                }
+
+                enemies.add(
+                    new Enemy(
+                        id,
+                        x,
+                        y,
+                        points,
+                        type
+                    )
+                );
                 id++;
             }
         }
@@ -167,6 +187,8 @@ public class GameState {
 
         checkBulletEnemyCollisions();
         updateEnemyBullets();
+        checkEnemyBulletPlayerCollisions();
+
         checkEnemiesReachedPlayer();
         checkWaveCompleted();
     }
@@ -521,4 +543,47 @@ public class GameState {
         );
     }
 
+    private synchronized void checkEnemyBulletPlayerCollisions() {
+
+        final int playerY = 540;
+        final int playerWidth = 60;
+        final int playerHeight = 25;
+
+        for (EnemyBullet bullet : enemyBullets) {
+
+            if (!bullet.isActive()) {
+                continue;
+            }
+
+            if (isColliding(
+                    bullet.getX(),
+                    bullet.getY(),
+                    bullet.getWidth(),
+                    bullet.getHeight(),
+                    playerX,
+                    playerY,
+                    playerWidth,
+                    playerHeight
+            )) {
+
+                bullet.deactivate();
+
+                playerLives--;
+
+                System.out.println(
+                    "Jugador golpeado. Vidas restantes: "
+                    + playerLives
+                );
+
+                if (playerLives <= 0) {
+                    playerLives = 0;
+                    gameOver = true;
+
+                    System.out.println("GAME OVER");
+                }
+
+                break;
+            }
+        }
+    }
 }

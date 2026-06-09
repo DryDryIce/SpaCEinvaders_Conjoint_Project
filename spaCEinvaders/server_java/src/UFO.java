@@ -3,7 +3,7 @@ public class UFO extends Enemy {
     private int direction;
 
     public UFO(int id, int x, int y, int points, int direction) {
-        super(id, x, y, points);
+        super(id, x, y, points, 3);
         this.direction = direction;
     }
 

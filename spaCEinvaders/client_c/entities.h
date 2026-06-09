@@ -19,6 +19,7 @@ typedef struct {
     int y;
     int points;
     int active;
+    int type;
 } Enemy;
 
 typedef struct {

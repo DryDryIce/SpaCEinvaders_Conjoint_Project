@@ -47,11 +47,12 @@ void process_server_message(GameStateClient *game_state, char *message) {
 
         sscanf(
             message,
-            "ENEMY|%d|%d|%d|%d",
+            "ENEMY|%d|%d|%d|%d|%d",
             &enemy.id,
             &enemy.x,
             &enemy.y,
-            &enemy.points
+            &enemy.points,
+            &enemy.type
         );
 
         enemy.active = 1;

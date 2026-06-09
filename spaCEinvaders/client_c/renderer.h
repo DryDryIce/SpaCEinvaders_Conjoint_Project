@@ -2,6 +2,7 @@
 #define RENDERER_H
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include "entities.h"
 
 int init_renderer(SDL_Window **window, SDL_Renderer **renderer);

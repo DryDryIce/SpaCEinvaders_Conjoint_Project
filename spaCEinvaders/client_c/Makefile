@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Wextra
-SDL_FLAGS := $(shell pkg-config --cflags --libs sdl2)
+SDL_FLAGS := $(shell pkg-config --cflags --libs sdl2 SDL2_image)
 
 all: client
 

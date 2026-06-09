@@ -81,7 +81,8 @@ public class ClientHandler implements Runnable {
                     enemy.getId() + "|" +
                     enemy.getX() + "|" +
                     enemy.getY() + "|" +
-                    enemy.getPoints()
+                    enemy.getPoints() + "|" +
+                    enemy.getType()
                 );
             }
         }

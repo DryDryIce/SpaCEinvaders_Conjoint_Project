@@ -1,10 +1,22 @@
 #include "renderer.h"
 #include "constants.h"
 
+static SDL_Texture *enemy1Texture = NULL;
+static SDL_Texture *enemy2Texture = NULL;
+static SDL_Texture *enemy3Texture = NULL;
+
+static SDL_Texture *playerTexture = NULL;
+static SDL_Texture *ufoTexture = NULL;
+
+
 int init_renderer(SDL_Window **window, SDL_Renderer **renderer) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         return 0;
     }
+
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+    return 0;
+}
 
     *window = SDL_CreateWindow(
         "spaCEinvaders - Cliente Jugador",
@@ -29,6 +41,45 @@ int init_renderer(SDL_Window **window, SDL_Renderer **renderer) {
         return 0;
     }
 
+        enemy1Texture = IMG_LoadTexture(
+        *renderer,
+        "images/enemy1.png"
+    );
+
+    enemy2Texture = IMG_LoadTexture(
+        *renderer,
+        "images/enemy2.png"
+    );
+
+    enemy3Texture = IMG_LoadTexture(
+        *renderer,
+        "images/enemy3.png"
+    );
+
+    playerTexture = IMG_LoadTexture(
+        *renderer,
+        "images/nave.png"
+    );
+
+    ufoTexture = IMG_LoadTexture(
+        *renderer,
+        "images/ovni.png"
+    );
+
+    if (!enemy1Texture ||
+        !enemy2Texture ||
+        !enemy3Texture ||
+        !playerTexture ||
+        !ufoTexture) {
+
+        printf(
+            "Error cargando imagen: %s\n",
+            IMG_GetError()
+        );
+
+        return 0;
+    }
+
     return 1;
 }
 
@@ -42,8 +93,12 @@ void render_game(SDL_Renderer *renderer, GameStateClient game_state) {
     cannon.w = PLAYER_WIDTH;
     cannon.h = PLAYER_HEIGHT;
 
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    SDL_RenderFillRect(renderer, &cannon);
+    SDL_RenderCopy(
+        renderer,
+        playerTexture,
+        NULL,
+        &cannon
+    );
 
     for (int i = 0; i < game_state.enemy_count; i++) {
         if (!game_state.enemies[i].active) {
@@ -56,8 +111,24 @@ void render_game(SDL_Renderer *renderer, GameStateClient game_state) {
         enemy_rect.w = ENEMY_WIDTH;
         enemy_rect.h = ENEMY_HEIGHT;
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderFillRect(renderer, &enemy_rect);
+        SDL_Texture *enemyTexture;
+
+        if (game_state.enemies[i].type == 0) {
+            enemyTexture = enemy1Texture;
+        }
+        else if (game_state.enemies[i].type == 1) {
+            enemyTexture = enemy2Texture;
+        }
+        else {
+            enemyTexture = enemy3Texture;
+        }
+
+        SDL_RenderCopy(
+            renderer,
+            enemyTexture,
+            NULL,
+            &enemy_rect
+        );
     }
 
     for (int i = 0; i < game_state.bunker_count; i++) {
@@ -138,16 +209,10 @@ void render_game(SDL_Renderer *renderer, GameStateClient game_state) {
         ufo_rect.w = 60;
         ufo_rect.h = 25;
 
-        SDL_SetRenderDrawColor(
+        SDL_RenderCopy(
             renderer,
-            255,
-            0,
-            255,
-            255
-        );
-
-        SDL_RenderFillRect(
-            renderer,
+            ufoTexture,
+            NULL,
             &ufo_rect
         );
     }
